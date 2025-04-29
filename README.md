@@ -24,6 +24,6 @@ Follows Single Responsibility, Open-Closed, and other SOLID principles
 Designed with UML class diagrams for clarity and maintainability
 
 🛠 Tech Stack
-Language: C# (.NET Core)
+Language: C# 
 
 Tools: Visual Studio, Draw.io (UML)
