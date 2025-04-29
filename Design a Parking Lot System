@@ -1,0 +1,488 @@
+
+🚗 Smart Parking Lot System – C# OOP & SOLID Design
+A scalable and maintainable Parking Lot System built in C# using Object-Oriented Programming and SOLID principles, 
+complete with UML Class Diagram and real-time vehicle tracking.
+
+✅ Key Features
+🏢 Multi-Floor & Spot Management
+Dynamically handles multiple floors and parking spot allocations.
+
+🚘 Vehicle Parking & Spot Allocation
+Smart allocation of spots based on vehicle type (Car/Bike).
+
+🎫 Auto Ticket Generation
+Records entry time, generates a unique ticket upon parking.
+
+⏱️ Exit & Billing
+Calculates duration and cost upon vehicle exit.
+
+🧾 Vehicle Parking History
+Stores history including entry, exit, duration, and charges.
+
+📦 Clean Architecture
+
+Follows Single Responsibility, Open-Closed, and other SOLID principles
+
+Designed with UML class diagrams for clarity and maintainability
+
+🛠 Tech Stack
+Language: C# (.NET Core)
+
+Tools: Visual Studio, Draw.io (UML),
+
+using System;
+
+public enum VehicleType
+{
+    HatchBack,
+    Bike,
+    Lorry,
+    Sedan
+}
+
+public class Vehicle
+{
+    public string License { get; set; }
+    public VehicleType Type { get; set; }
+}
+
+public enum SpotType
+{
+    Mini,
+    Compact,
+    Medium,
+    Large
+}
+
+public class ParkingSpot
+{
+    public required string spotId { get; set; }
+
+    public SpotType spotType { get; set; }
+    public bool isAvailable { get; set; } = true;
+
+    public Vehicle vehicle { get; set; } = null;
+
+}
+
+public class ParkingFloor
+{
+    public string FloorName { get; set; }
+    public List<ParkingSpot> Floors = new();
+    int SpotsAvailable { get; set; } = 0;
+    int TotalSpot { get; set; } = 0;
+
+    public ParkingFloor()
+    {
+
+    }
+
+    public ParkingFloor(int spot)
+    {
+        TotalSpot = spot;
+        SpotsAvailable = TotalSpot;
+    }
+
+    public void AddSpot(int NSpots, SpotType type)
+    {
+
+        if (NSpots > SpotsAvailable)
+        {
+            Console.WriteLine("We dont have that much spots left to allocate !");
+            return;
+        }
+        Console.WriteLine("--------Spots adding Functionality Starts ------");
+        for (int i = 1; i <= NSpots; i++)
+        {
+            var spots = new ParkingSpot()
+            {
+                spotId = $"M{i}",
+                spotType = type
+            };
+
+            Console.WriteLine($"Added spotId: {spots.spotId} , SpotType: {spots.spotType} Successfully ");
+
+            Floors.Add(spots);
+        }
+        Console.WriteLine("----------Spots Adding Functionality Ends---------");
+        // return true;
+    }
+
+    public void print()
+    {
+        for (int i = 0; i < Floors.Count; i++)
+        {
+            var spot= Floors[i];
+            Console.WriteLine($"{spot.spotId}");
+        }
+    }
+    public int SpotsLeft()
+    {
+        return SpotsAvailable;
+    }
+
+    public void AddSpotsLeft(int NSpots)
+    {
+        SpotsAvailable += NSpots;
+        TotalSpot += NSpots;
+    }
+
+    public void RemoveSpot(string spotId)
+    {
+        var spot = Floors.FirstOrDefault(s => s.spotId == spotId);
+
+        if (spot == null)
+        {
+            Console.WriteLine($"{spotId} is not available");
+            return;
+        }
+
+        Floors.Remove(spot);
+        Console.WriteLine($"{spotId} is removed successfully");
+        SpotsAvailable -= 1;
+        TotalSpot -= 1;
+
+    }
+
+    //get the details about spot
+    public void Details(string id)
+    {
+        ParkingSpot spotdetails = Floors.FirstOrDefault(s => s.spotId==id);
+
+        if (spotdetails == null)
+        {
+            Console.WriteLine("Id is invalid");
+            return;
+        }
+        string parkedVehicle;
+
+        if (spotdetails.vehicle == null) parkedVehicle = "Null";
+        else parkedVehicle = spotdetails.vehicle.ToString();
+
+        Console.WriteLine($"SpotId : {spotdetails.spotId} ,  Spot Availability: {spotdetails.isAvailable},VehicleParked : {parkedVehicle} , Spot Type : {spotdetails.spotType}");
+        
+    }
+
+    //park the vehicle
+
+    public bool park(Vehicle vehicle)
+    {
+        //get the suitable parking spot
+        //park the vehicle
+        //make spot is marked available false;
+        // ParkingSpot spt;
+        TicketManager ticketmanager = new TicketManager();
+        foreach (var spot in Floors)
+        {
+            if (spot.isAvailable)
+            {
+                if (vehicle.Type.ToString() == "Sedan" && spot.spotType == SpotType.Medium || vehicle.Type.ToString() == "HatchBack" && spot.spotType == SpotType.Compact ||
+                     vehicle.Type.ToString() == "Bike" && spot.spotType == SpotType.Mini || vehicle.Type.ToString() == "Lorry" && spot.spotType == SpotType.Large)
+                {
+                    spot.vehicle = vehicle;
+                    spot.isAvailable = false;    //this fields automatically updated in the list , becoz we accessing the object which is original whichis points to its address
+                    //generate a ticket 
+                    Console.WriteLine($"Use this SpotId while you are leaving {spot.spotId}");
+                    ticketmanager.GenerateEntryTicket(vehicle);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public bool FreeVehicle(string id,int TicketId)
+    {
+        //check if it is found and also check if the spot has vehicle or not
+        var SpotFound=Floors.FirstOrDefault(s=>s.spotId == id);
+        var isVehicleAvailable=Floors.FirstOrDefault(v=>v.vehicle!=null);
+        if (SpotFound == null || isVehicleAvailable==null)
+        {
+            Console.WriteLine("Spot or Vehicle is invalid / Not Found !  Please check and try Again");
+            return false;
+        }
+
+        TicketManager manager = new();
+        manager.GenerateExitTicket(TicketId);
+
+        SpotFound.vehicle = null;
+        SpotFound.isAvailable= true;
+        return true;
+    }
+
+    public bool FreeUpSpot(string License,int TicketId)
+    {
+        var spot=Floors.FirstOrDefault(f=>f.vehicle!=null && f.vehicle.License==License);
+        if(spot==null)
+        {
+            return false;
+        }
+
+        TicketManager manager = new();
+        manager.GenerateExitTicket(TicketId);
+
+        spot.isAvailable = true;
+        spot.vehicle = null;
+        return true;
+
+    }
+}
+
+
+//park vehicle
+ public class ParkVehicle
+ {
+        public List<Vehicle> ParkedVehicles = new List<Vehicle>();
+    //  ParkingFloor floor = new ParkingFloor();  --> if we create a new object for accessing the parkingFloor class means it will hold empty fields
+     ParkingFloor floor;
+
+    public ParkVehicle(ParkingFloor fl)
+    {
+        floor = fl;
+    }
+         
+        public void ParkHere(Vehicle vehicle)
+        {
+           //get the spot in the floor
+           var StatusMessage=floor.park(vehicle);
+        if (StatusMessage == true)
+        {
+            ParkedVehicles.Add(vehicle);
+            Console.WriteLine($"Vehicle No:{vehicle.License} is Parked!");
+        }
+        else
+            Console.WriteLine("Sorry! We cant able to find the suitable spot for your vehicle");
+        }
+
+        public void ListingParkedVehicles()
+        {
+          Console.WriteLine("----Listing Parked Vehicles-----");
+            foreach(var vehicle in ParkedVehicles)
+            {
+              Console.WriteLine(vehicle.License,vehicle.Type);
+            }
+        Console.WriteLine();
+        }
+ }
+
+
+public class TicketCalc
+{
+    private static int _idCounter = 1;
+    public int TicketId { get; private set; } //only allow setting field inside the class
+    public string VehicleNo { get; set; }
+    public DateTime EntryTime { get; set; }
+    public DateTime? ExitTime { get; set; } = null;
+    public int Cost { get; set; }
+
+    public TicketCalc()
+    {
+        TicketId=_idCounter++;
+    }
+
+    //calculate price
+    public  int CalculatePrice(DateTime Entry,DateTime Exit)
+    {
+        TimeSpan duration = Exit - Entry;
+
+        //RoundUp total hours (eg: 1 hr 30 min -> 2 hrs)
+        int totalHrs=(int)Math.Ceiling(duration.TotalHours);
+        int cost = 0;
+        if (totalHrs <= 1)
+            cost = 20;
+        else
+        {
+            cost = 20 + (totalHrs - 1) * 10;
+        }
+
+        return cost;
+    }
+
+    public TicketCalc EntryTicket(Vehicle vehicle)
+    {
+        TicketCalc ticketCalc = new TicketCalc();
+        ticketCalc.TicketId = TicketId;
+        ticketCalc.VehicleNo = vehicle.License;
+        ticketCalc.EntryTime=DateTime.Now;
+        return ticketCalc;
+    }
+
+    public int ExitTicket(TicketCalc ticketCalc)
+    {
+        
+        int cost = CalculatePrice(ticketCalc.EntryTime,ticketCalc.ExitTime.Value);
+        return cost;
+    }
+}
+
+public class TicketManager
+{
+     public static List<TicketCalc> Tickets = new ();
+    TicketCalc tckt = new();
+     public  void GenerateEntryTicket(Vehicle vehicle)
+    {
+        TicketCalc curr=tckt.EntryTicket(vehicle);
+        Tickets.Add(curr);
+        Console.WriteLine("-----Ticket For your vehicle------- ");
+        Console.WriteLine($"Your Ticketd id : {curr.TicketId} Vehicle No: {curr.VehicleNo} is Parked at a Time of : {curr.EntryTime}");
+        Console.WriteLine();
+        Console.WriteLine("Please provide your Ticket Id while you are vacating.");
+    }
+
+    public  void GenerateExitTicket(int id)
+    {
+        var tck = Tickets.FirstOrDefault(t=>t.TicketId==id);
+
+        if (tck == null)
+        {
+            Console.WriteLine($"Sry ! We cant find the ticket for {id} Please check and try again");
+            return;
+        }
+
+        tck.ExitTime = DateTime.Now;
+
+        int cost=tck.ExitTicket(tck);  //--Calculating  the cost
+          
+        tck.Cost = cost;
+
+        Console.WriteLine($"Please Pay {cost} and Thanks for Using our Service");
+    }
+
+    public void ViewHistoryofParkedVehicles()
+    {
+        foreach(var obj in Tickets)
+        {
+            if(obj.ExitTime.HasValue)
+            Console.WriteLine($"Vehicle No: {obj.VehicleNo} TicketId: {obj.TicketId}  Entered Time : {obj.EntryTime} Exited Time : {obj.ExitTime}  Amount Paid : {obj.Cost} ");
+        }
+    }
+    
+      
+}
+
+public class ParkingBuilding
+{
+    //manage list of floor
+    //add a floor , delete a floor , find the spot in the entire floor
+    private List<ParkingFloor> parkingFloors = new();   
+    public void AddFloor(ParkingFloor parkingFloor)
+    {
+        if(parkingFloor==null)
+        {
+            Console.WriteLine("Please check you input!");
+            return;
+        }
+
+        parkingFloors.Add(parkingFloor);
+        Console.WriteLine($" floor : {parkingFloor.FloorName}  is added successfully in the building");
+    }
+
+    public void RemoveFloor(string FloorName)
+    {
+        var floor=parkingFloors.FirstOrDefault(s=>s.FloorName==FloorName);
+
+        if(floor==null)
+        {
+            Console.WriteLine("Floor is not found!");
+            return;
+        }
+
+        parkingFloors.Remove(floor);
+        Console.WriteLine($"floor : {FloorName}  is Removed Succefully ");
+    }
+
+    public void ListFloors()
+    {
+        foreach (var floor in parkingFloors)
+        {
+            Console.WriteLine($"{floor.FloorName}");
+        }
+    }
+
+    public void ParkinSpot(Vehicle vehicle)
+    {
+        bool parked=false;
+        foreach( var floor in parkingFloors)
+        {
+
+            var isParked = floor.park(vehicle);
+            if(isParked)
+            {
+                parked = true;
+                break;
+            }
+        }
+        if (parked)
+        {
+            Console.WriteLine("Vehicle Parked");
+            return;
+        }
+        Console.WriteLine("We regret for this !  cant find suitable spot for your Vehicle");    
+    }
+
+    public void RemoveSpot(string id,int TicketId)
+    {
+        //Loop through the floor
+        //check the spot in the floor which has vehicle is parked and filter based on the vehicle num
+        foreach(var floor in parkingFloors)
+        {
+            var status=floor.FreeUpSpot(id, TicketId);
+            if(status)
+                return;
+        }
+
+
+    }
+}
+
+public class Manager
+{
+    public static void Main(string[] args)
+    {
+        var floor1 = new ParkingFloor(30);
+        floor1.FloorName = "M1";
+
+        floor1.AddSpot(10, SpotType.Mini);
+      //  floor1.Details("M1");
+        floor1.AddSpot(10,SpotType.Large);
+        floor1.AddSpot(10,SpotType.Medium);
+
+        Console.WriteLine();
+        Console.WriteLine();   
+
+        var floor2=new ParkingFloor(30);
+        floor2.FloorName = "M2";
+        floor2.AddSpot(10, SpotType.Mini);
+        //  floor1.Details("M1");
+        floor2.AddSpot(10, SpotType.Large);
+        floor2.AddSpot(10, SpotType.Medium);
+
+
+        ParkingBuilding building = new ParkingBuilding();
+        building.AddFloor(floor1);
+        building.AddFloor(floor2);
+        building.ListFloors();
+
+
+        //create the vehicle
+        var Verna = new Vehicle();
+        Verna.License = "TN28AC8092";
+        Verna.Type = VehicleType.Sedan;
+        Console.WriteLine($"Vehicle No:{Verna.License} is Registered Successfully");
+
+        var Enfield = new Vehicle();
+        Enfield.License = "TN45AZ1413";
+        Enfield.Type = VehicleType.Bike;
+        Console.WriteLine($"Vehicle No:{Enfield.License} is Registered Successfully");
+
+
+         building.ParkinSpot(Verna);
+        building.ParkinSpot(Enfield);
+
+        building.RemoveSpot("TN28AC8092",1);
+   
+        TicketManager ticketManager = new TicketManager();
+        ticketManager.ViewHistoryofParkedVehicles();
+        Console.ReadLine();
+    }
+}
