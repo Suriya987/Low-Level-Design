@@ -1,0 +1,138 @@
+//Design a  File System
+
+using System;
+namespace FileSystem
+{
+    //need base class
+    //-->File Class
+    //-->Directory Class
+
+    public abstract class FileSystemComponent
+    {
+        public string Name { get; set; }
+
+        public FileSystemComponent(string name)
+        {
+            this.Name = name;
+        }
+
+        public abstract void Display(int depth);
+        public abstract long GetSize();
+    }
+
+    public class File : FileSystemComponent
+    {
+        private long _size;
+
+        public File(string name, long size) : base(name)
+        {
+            this._size = size;
+        }
+
+        public override void Display(int depth)
+        {
+            Console.WriteLine(new String('-',depth)+Name);  //this will print  
+        }
+
+        public override long GetSize()
+        {
+            return _size;
+        }
+    }
+
+    public class Directory : FileSystemComponent
+    {
+        private List<FileSystemComponent> _components;
+
+        public Directory(string name) : base(name)
+        {
+            _components = new List<FileSystemComponent>();
+        }
+
+        public override void Display(int depth)
+        {
+            Console.WriteLine(new String('-',depth)+Name);//this line will print the directory name
+
+            foreach (FileSystemComponent comp in _components)
+            {
+                comp.Display(depth+2);
+            }
+        }
+
+        public override long GetSize()
+        {
+             return _components.Sum(c=>c.GetSize());
+        }
+
+        public void Add(FileSystemComponent comp)
+        {
+            _components.Add(comp);
+        }
+
+        public void Remove(FileSystemComponent comp)
+        {
+            _components.Remove(comp);
+        }
+    }
+
+    public class user
+    {
+        public static void Main(string[] args)
+        {
+            var root = new Directory("Logs");
+
+            //creating a another root
+            var Day1Logs = new Directory("Day1Logs");
+            var Day2Logs = new Directory("Day2Logs");
+            var Day3Logs = new Directory("Day3Logs");
+
+            //creating a file
+            //->day1
+            var MorningFile = new File("MorningLogFile", 200);
+            var NoonFile = new File("NoonLog", 600);
+            var EveFile = new File("EveLog", 800);
+
+            //->day1
+            var MorningFiles = new File("MorningLogFile", 150);
+            var NoonFiles = new File("NoonLog", 690);
+            var EveFiles = new File("EveLog", 880);
+
+            //->day1
+            var MorningFiless = new File("MorningLogFile", 230);
+            var NoonFiless = new File("NoonLog", 610);
+            var EveFiless = new File("EveLog", 810);
+
+
+
+            //now put the file in the DayLogs
+            Day1Logs.Add(MorningFile);
+            Day1Logs.Add(NoonFile);
+            Day1Logs.Add(EveFile);
+
+            Day2Logs.Add(MorningFiles);
+            Day2Logs.Add(NoonFiles);
+            Day2Logs.Add(EveFiles);
+
+            Day3Logs.Add(MorningFiless);
+            Day3Logs.Add(NoonFiless);
+            Day3Logs.Add(EveFiless);
+
+            //now put the day Directory into the Logs
+
+            root.Add(Day1Logs);
+            root.Add(Day2Logs);
+            root.Add(Day3Logs);
+
+            root.Display(1);
+
+            long size = root.GetSize();
+
+            Console.WriteLine($"RootSize:{size}");
+
+            Console.ReadLine();
+
+
+
+        }
+    }
+}
