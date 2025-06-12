@@ -1,0 +1,288 @@
+/*
+  Design and implement a simple media player system that supports playing and downloading 
+different types of media files like audio and video.
+
+MediaPlayer
+->AudioPlayer
+    -> List<Audio>   -> Data
+    ->Upload ->Play -> Download
+    
+->VedioPlayer
+    ->List<Vedio>  ->Data
+    ->Upload -> Play -> Download
+
+ */
+
+
+public class Audio
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string AudioFile { get; set; }  //consider as a metadata
+}
+
+
+public class Vedio
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string VedioFile { get; set; }
+}
+
+public interface IMediaPlayer
+{
+    void Play(string name);
+    void Upload();
+    void Download(string name);
+}
+
+public class AudioPlayer : IMediaPlayer
+{
+    private static List<Audio> _Audios = new List<Audio>();
+    private static List<Audio> _PendingAudios= new List<Audio>();
+
+    public AudioPlayer() { }
+
+    public void AddAudio(Audio audio)
+    {
+
+        if (audio == null)
+        {
+            Console.WriteLine("data is empty");
+            return;
+        }
+         _PendingAudios.Add(audio);
+    }
+
+    public void Upload()
+    {
+        if (_PendingAudios.Count > 0)
+        {
+            foreach (Audio audio in _PendingAudios)
+            {
+                _Audios.Add(audio);
+            }
+            _PendingAudios.Clear();
+            Console.WriteLine("Vedios Added Successfully");
+        }
+        else
+        {
+            Console.WriteLine("We dont have any Audio left");
+        }
+    }
+
+    public void Play(string name)
+    {
+        if (name != null || name != " ")
+        {
+            bool isAvailable = false;
+       
+            foreach (Audio audio in _Audios)
+            {
+                if (name == audio.Name)
+                {
+                    isAvailable = true;
+                    break;
+                }
+            }
+            if (isAvailable)
+            {
+                Console.WriteLine($"Hi There ! Your Fav Audio {name} is playingg..:)");
+                return;
+            }
+            Console.WriteLine("OOPS ! We dont find a song which you are requested");
+            return;
+        }
+
+        Console.WriteLine("Audio Name should be non-empty");
+    }
+
+    public void Download(string name)
+    {
+        if (name != null || name != " ")
+        {
+            bool isAvailable = false;
+            foreach (Audio audio in _Audios)
+            {
+                if (name == audio.Name)
+                {
+                    isAvailable = true;
+                    break;
+                }
+            }
+            if (isAvailable)
+            {
+                Console.WriteLine($"Audio : {name} is Downloaded.. ");
+                return;
+            }
+            Console.WriteLine("Audio is not available");
+            return;
+        }
+        Console.WriteLine("Name should be non empty");
+    }
+}
+
+public class VedioPlayer : IMediaPlayer
+{
+    private static List<Vedio> _Vedios = new List<Vedio>();
+    private static List<Vedio> _PendingVedios = new List<Vedio>();
+
+    
+    public VedioPlayer() {}
+    
+    public void AddVedio(Vedio vedio)
+    {
+        if (vedio == null)
+        {
+            Console.WriteLine("Vedio Data Should be non-empty");
+            return;
+        }
+        _PendingVedios.Add(vedio);
+    }
+    public void Upload()
+    {
+        if (_PendingVedios.Count > 0)
+        {
+            foreach (Vedio vedio in _PendingVedios)
+            {
+                _Vedios.Add(vedio);
+            }
+            _PendingVedios.Clear();
+            Console.WriteLine("Vedio is added");
+        }
+        else
+        {
+            Console.WriteLine("We dont have any audios to upload");
+        }
+    }
+
+    public void Play(string name)
+    {
+        if (name != null || name != " ")
+        {
+            bool isAvailable = false;
+
+            foreach (Vedio vedio in _Vedios)
+            {
+                if (name == vedio.Name)
+                {
+                    isAvailable = true;
+                    break;
+                }
+            }
+            if (isAvailable)
+            {
+                Console.WriteLine($"Hi There ! Your Fav vedio {name} is playingg..:)");
+                return;
+            }
+            Console.WriteLine("OOPS ! We dont find a vedio which you are requested");
+            return;
+        }
+
+        Console.WriteLine("vedio Name should be non-empty");
+    }
+
+    public void Download(string name)
+    {
+        if (name != null || name != " ")
+        {
+            bool isAvailable = false;
+            foreach (Vedio vedio in _Vedios)
+            {
+                if (name == vedio.Name)
+                {
+                    isAvailable = true;
+                    break;
+                }
+            }
+            if (isAvailable)
+            {
+                Console.WriteLine($"Vedio : {name} is Downloaded.. ");
+                return;
+            }
+            Console.WriteLine("vedio is not available");
+            return;
+        }
+        Console.WriteLine("Name should be non empty");
+    }
+
+
+}
+
+public class program
+{
+    public static void Main(string[] args)
+    {
+        //MediaPlayer audioPlayer = new AudioPlayer();
+        //MediaPlayer VedioPlayer = new VedioPlayer();
+
+        AudioPlayer AudioPlayer=new AudioPlayer();
+        VedioPlayer VedioPlayer = new VedioPlayer();
+
+        //audio
+        var Raanja = new Audio
+        {
+            Id = 1,
+            Name = "Raanjha",
+            AudioFile = "Raanjha_Shersha.mp3"
+        };
+
+        var RajaSong = new Audio
+        {
+            Id = 3,
+            Name = "IlayaNila",
+            AudioFile = "ilayanila_Raja.mp3"
+        };
+
+        AudioPlayer.AddAudio(Raanja);
+        AudioPlayer.AddAudio(RajaSong);
+        AudioPlayer.Upload();
+
+
+
+        //vedio
+        var virat100 = new Vedio
+        {
+            Id = 44,
+            Name = "ViratSydney100",
+            VedioFile="ViratTest100.mp4"
+        };
+
+        var ThuppakiMoview = new Vedio
+        {
+            Id = 123,
+            Name = "Thuppaki",
+            VedioFile = "ThuppakiFillMovie.mp4"
+        };
+
+        VedioPlayer.AddVedio(virat100);
+        VedioPlayer.AddVedio(ThuppakiMoview);
+        VedioPlayer.Upload();
+
+
+        //operations
+        //audio Operations
+        //positive Scenario
+        AudioPlayer.Play("IlayaNila");
+        AudioPlayer.Download("Raanjha");
+
+        //negative Scenario
+        AudioPlayer.Download("Kakakaka");
+
+
+        //Vedio Operations
+        //Positive scenario
+        VedioPlayer.Play("Thuppaki");
+        VedioPlayer.Download("ViratSydney100");
+
+        //Negative Scenario
+        VedioPlayer.Play("Makantha");
+
+        Console.ReadLine();
+
+
+    }
+}
+
+
+
