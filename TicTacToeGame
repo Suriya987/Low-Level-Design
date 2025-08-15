@@ -1,0 +1,224 @@
+using System;
+using System.Collections.Generic;
+
+namespace LowLevelDesignQuestions.LLDTicTacToe
+{
+    public class Program
+    {
+        public static void Main(string[] args)
+        {
+            TicTacToeGame game = new TicTacToeGame();
+            Console.WriteLine("Game winner is : " + game.StartGame());
+        }
+    }
+
+    public class TicTacToeGame
+    {
+        private Queue<Player> players;
+        private Board gameBoard;
+
+        public TicTacToeGame()
+        {
+            InitializeGame();
+        }
+
+        private void InitializeGame()
+        {
+            players = new Queue<Player>();
+
+            PlayingPieceX crossPiece = new PlayingPieceX();
+            Player player1 = new Player("Player1", crossPiece);
+
+            PlayingPieceO noughtPiece = new PlayingPieceO();
+            Player player2 = new Player("Player2", noughtPiece);
+
+            players.Enqueue(player1);
+            players.Enqueue(player2);
+
+            gameBoard = new Board(3);
+        }
+
+        public string StartGame()
+        {
+            bool noWinner = true;
+
+            while (noWinner)
+            {
+                Player playerTurn = players.Dequeue();
+                gameBoard.PrintBoard();
+
+                var freeSpaces = gameBoard.GetFreeCells();
+                if (freeSpaces.Count == 0)
+                {
+                    noWinner = false;
+                    continue;
+                }
+
+                Console.Write($"Player: {playerTurn.Name}, Enter row,column: ");
+                string input = Console.ReadLine();
+                var values = input.Split(',');
+                int inputRow = int.Parse(values[0]);
+                int inputColumn = int.Parse(values[1]);
+
+                // place the piece
+                bool pieceAddedSuccessfully = gameBoard.AddPiece(inputRow, inputColumn, playerTurn.PlayingPiece);
+                if (!pieceAddedSuccessfully)
+                {
+                    Console.WriteLine("Incorrect position chosen, try again");
+                    players.Enqueue(playerTurn);
+                    continue;
+                }
+
+                players.Enqueue(playerTurn);
+
+                bool winner = IsThereWinner(inputRow, inputColumn, playerTurn.PlayingPiece.PieceType);
+                if (winner)
+                {
+                    return playerTurn.Name;
+                }
+            }
+
+            return "Tie";
+        }
+
+        private bool IsThereWinner(int row, int column, PieceType pieceType)
+        {
+            bool rowMatch = true;
+            bool columnMatch = true;
+            bool diagonalMatch = true;
+            bool antiDiagonalMatch = true;
+
+            // Check column
+            for (int i = 0; i < gameBoard.Size; i++)
+            {
+                if (gameBoard.BoardGrid[i, column] == null ||
+                    gameBoard.BoardGrid[i, column].PieceType != pieceType)
+                {
+                    columnMatch = false;
+                }
+            }
+
+            // Check row
+            for (int i = 0; i < gameBoard.Size; i++)
+            {
+                if (gameBoard.BoardGrid[row, i] == null ||
+                    gameBoard.BoardGrid[row, i].PieceType != pieceType)
+                {
+                    rowMatch = false;
+                }
+            }
+
+            // Check diagonal
+            for (int i = 0, j = 0; i < gameBoard.Size; i++, j++)
+            {
+                if (gameBoard.BoardGrid[i, j] == null ||
+                    gameBoard.BoardGrid[i, j].PieceType != pieceType)
+                {
+                    diagonalMatch = false;
+                }
+            }
+
+            // Check anti-diagonal
+            for (int i = 0, j = gameBoard.Size - 1; i < gameBoard.Size; i++, j--)
+            {
+                if (gameBoard.BoardGrid[i, j] == null ||
+                    gameBoard.BoardGrid[i, j].PieceType != pieceType)
+                {
+                    antiDiagonalMatch = false;
+                }
+            }
+
+            return rowMatch || columnMatch || diagonalMatch || antiDiagonalMatch;
+        }
+    }
+
+    public class Board
+    {
+        public int Size { get; private set; }
+        public PlayingPiece[,] BoardGrid { get; private set; }
+
+        public Board(int size)
+        {
+            Size = size;
+            BoardGrid = new PlayingPiece[size, size];
+        }
+
+        public bool AddPiece(int row, int column, PlayingPiece playingPiece)
+        {
+            if (BoardGrid[row, column] != null)
+            {
+                return false;
+            }
+
+            BoardGrid[row, column] = playingPiece;
+            return true;
+        }
+
+        public List<(int, int)> GetFreeCells()
+        {
+            var freeCells = new List<(int, int)>();
+            for (int i = 0; i < Size; i++)
+            {
+                for (int j = 0; j < Size; j++)
+                {
+                    if (BoardGrid[i, j] == null)
+                    {
+                        freeCells.Add((i, j));
+                    }
+                }
+            }
+            return freeCells;
+        }
+
+        public void PrintBoard()
+        {
+            for (int i = 0; i < Size; i++)
+            {
+                for (int j = 0; j < Size; j++)
+                {
+                    string val = BoardGrid[i, j] == null ? "-" : BoardGrid[i, j].PieceType.ToString();
+                    Console.Write(val + " ");
+                }
+                Console.WriteLine();
+            }
+        }
+    }
+
+    public class Player
+    {
+        public string Name { get; set; }
+        public PlayingPiece PlayingPiece { get; set; }
+
+        public Player(string name, PlayingPiece playingPiece)
+        {
+            Name = name;
+            PlayingPiece = playingPiece;
+        }
+    }
+
+    public abstract class PlayingPiece
+    {
+        public PieceType PieceType { get; private set; }
+
+        protected PlayingPiece(PieceType pieceType)
+        {
+            PieceType = pieceType;
+        }
+    }
+
+    public class PlayingPieceX : PlayingPiece
+    {
+        public PlayingPieceX() : base(PieceType.X) { }
+    }
+
+    public class PlayingPieceO : PlayingPiece
+    {
+        public PlayingPieceO() : base(PieceType.O) { }
+    }
+
+    public enum PieceType
+    {
+        X,
+        O
+    }
+}
