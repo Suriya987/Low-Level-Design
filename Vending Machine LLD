@@ -1,0 +1,369 @@
+Desing Vending Machine 
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace VendingMachineApp
+{
+
+    public enum ItemType
+    {
+        COKE,
+        PEPSI,
+        JUICE,
+        SODA
+    }
+
+    public enum Coin
+    {
+        NICKEL = 5,
+        DIME = 10,
+        QUARTER = 25
+    }
+
+    // ---------------- MODELS ----------------
+    public class Item
+    {
+        public ItemType Type { get; set; }
+        public int Price { get; set; }
+    }
+
+    public class User
+    {
+        public string Name { get; set; }
+        public User(string name)
+        {
+            Name = name;
+        }
+    }
+
+    public class ItemShelf
+    {
+        public int Code { get; set; }
+        public Item Item { get; set; }
+        public bool SoldOut { get; set; }
+    }
+
+
+    public class BuyersHistory
+    {
+       private static Dictionary<User,List<Item>> items = new Dictionary<User,List<Item>>();
+       public BuyersHistory(Item item,User user)
+        {
+            UpdateRecords(item, user);
+        }
+
+        public BuyersHistory() { }
+        private void UpdateRecords(Item item, User user)
+        {
+            if (!items.ContainsKey(user))
+            {
+                items.Add(user, new List<Item>());
+
+                items[user].Add(item);
+            }
+            else
+                items[user].Add(item);
+        }
+
+        public void printHistory()
+        {
+            foreach (var item in items)
+            {
+                Console.WriteLine($"User {item.Key.Name} has bought below product/s   ");
+                foreach (var itemShelf in item.Value)
+                    Console.Write(itemShelf.Type);
+
+                Console.WriteLine();
+            }
+
+        }
+    }
+
+    public class Inventory
+    {
+        public List<ItemShelf> Shelves { get; set; }
+
+        public Inventory(int count)
+        {
+            Shelves = new List<ItemShelf>(count);
+            InitializeEmptyInventory(count);
+        }
+
+        private void InitializeEmptyInventory(int count)
+        {
+            int startCode = 101;
+            for (int i = 0; i < count; i++)
+            {
+                Shelves.Add(new ItemShelf
+                {
+                    Code = startCode,
+                    SoldOut = true
+                });
+                startCode++;
+            }
+        }
+
+        public Item GetItem(int code)
+        {
+            var shelf = Shelves.FirstOrDefault(s => s.Code == code);
+            if (shelf == null)
+                throw new Exception("Invalid Code");
+
+            if (shelf.SoldOut)
+                throw new Exception("Item already sold out");
+
+            return shelf.Item;
+        }
+
+        public void AddItem(Item item, int code)
+        {
+            var shelf = Shelves.FirstOrDefault(s => s.Code == code);
+            if (shelf == null)
+                throw new Exception("Invalid Code");
+
+            if (!shelf.SoldOut)
+                throw new Exception("Slot already filled");
+
+            shelf.Item = item;
+            shelf.SoldOut = false;
+        }
+
+        public void UpdateSoldOut(int code)
+        {
+            var shelf = Shelves.FirstOrDefault(s => s.Code == code);
+            if (shelf != null) shelf.SoldOut = true;
+        }
+    }
+
+
+    public interface IState
+    {
+        void ClickOnInsertCoinButton(VendingMachine machine);
+        void ClickOnStartProductSelectionButton(VendingMachine machine);
+        void InsertCoin(VendingMachine machine, Coin coin);
+        void ChooseProduct(VendingMachine machine, int code,User user);
+        void UpdateInventory(VendingMachine machine, Item item, int code);
+    }
+
+    public class IdleState : IState
+    {
+        public IdleState()
+        {
+            Console.WriteLine("Currently Vending machine is in IdleState");
+        }
+
+        public void ClickOnInsertCoinButton(VendingMachine machine)
+        {
+            machine.SetState(new HasMoneyState());
+        }
+
+        public void ClickOnStartProductSelectionButton(VendingMachine machine) =>
+            throw new Exception("Insert coin first");
+
+        public void InsertCoin(VendingMachine machine, Coin coin) =>
+            throw new Exception("Insert coin not allowed in Idle state");
+
+        public void ChooseProduct(VendingMachine machine, int code,User user) =>
+            throw new Exception("Choose product not allowed in Idle state");
+
+        public void UpdateInventory(VendingMachine machine, Item item, int code) =>
+            machine.Inventory.AddItem(item, code);
+    }
+
+    public class HasMoneyState : IState
+    {
+        public HasMoneyState()
+        {
+            Console.WriteLine("Currently Vending machine is in HasMoneyState");
+        }
+
+        //act as a button 
+        public void ClickOnInsertCoinButton(VendingMachine machine) { }
+
+        public void ClickOnStartProductSelectionButton(VendingMachine machine)
+        {
+            machine.SetState(new SelectionState());
+        }
+
+        //this will update the internal list of the coin list only it will used while dispense
+        public void InsertCoin(VendingMachine machine, Coin coin)
+        {
+            Console.WriteLine($"Accepted {coin}");
+            machine.CoinList.Add(coin);
+        }
+
+        public void ChooseProduct(VendingMachine machine, int code,User user) =>
+            throw new Exception("Click on ProductSelection button first");
+
+        public void UpdateInventory(VendingMachine machine, Item item, int code) =>
+            throw new Exception("Inventory cannot be updated in HasMoneyState");
+    }
+
+    public class SelectionState : IState
+    {
+        public SelectionState()
+        {
+            Console.WriteLine("Currently Vending machine is in SelectionState");
+        }
+
+        public void ClickOnInsertCoinButton(VendingMachine machine) =>
+            throw new Exception("Insert coin not allowed in Selection state");
+
+        public void ClickOnStartProductSelectionButton(VendingMachine machine) { }
+
+        public void InsertCoin(VendingMachine machine, Coin coin) =>
+            throw new Exception("Insert coin not allowed in Selection state");
+
+
+        //as of now we are able to choose only one product , if we need to select mulitple
+        //product means then we simply use List<int> to get multiple products - but i dont think 
+        // we can select multiple products in vending machine , i am not used it before
+        public void ChooseProduct(VendingMachine machine, int code,User user)
+        {
+            var item = machine.Inventory.GetItem(code);
+            int paid = machine.CoinList.Sum(c => (int)c);
+
+            if (paid < item.Price)
+            {
+                Console.WriteLine($"Insufficient funds. Item: {item.Price}, Paid: {paid}");
+                machine.SetState(new IdleState());
+                return;
+            }
+
+            if (paid > item.Price)
+            {
+                Console.WriteLine($"Returning change: {paid - item.Price}");
+            }
+
+            machine.SetState(new DispenseState(machine, code,user));
+        }
+
+        public void UpdateInventory(VendingMachine machine, Item item, int code) =>
+            throw new Exception("Cannot update inventory in SelectionState");
+    }
+
+    public class DispenseState : IState
+    {
+        //BuyersHistory updateBuyers = new BuyersHistory();
+        public DispenseState(VendingMachine machine, int code,User user)
+        {
+            Console.WriteLine("Currently Vending machine is in DispenseState");
+            DispenseProduct(machine, code,user);
+        }
+
+        private void DispenseProduct(VendingMachine machine, int code,User user)
+        {
+            var item = machine.Inventory.GetItem(code);
+            //for tracking  the BuyerhistoryRecords
+            new BuyersHistory(item, user);
+            Console.WriteLine($"Dispensing {item.Type}");
+            machine.Inventory.UpdateSoldOut(code);
+            machine.SetState(new IdleState());
+        }
+
+        public void ClickOnInsertCoinButton(VendingMachine machine) =>
+            throw new Exception("Insert coin not allowed in DispenseState");
+
+        public void ClickOnStartProductSelectionButton(VendingMachine machine) =>
+            throw new Exception("Selection not allowed in DispenseState");
+
+        public void InsertCoin(VendingMachine machine, Coin coin) =>
+            throw new Exception("Coin not allowed in DispenseState");
+
+        public void ChooseProduct(VendingMachine machine, int code,User user) =>
+            throw new Exception("Choose product not allowed in DispenseState");
+
+        public void UpdateInventory(VendingMachine machine, Item item, int code) =>
+            throw new Exception("Inventory cannot be updated in DispenseState");
+    }
+
+
+    public class VendingMachine
+    {
+        public IState State { get; private set; }
+        public Inventory Inventory { get; private set; }
+        public List<Coin> CoinList { get; private set; }
+
+        public VendingMachine()
+        {
+            State = new IdleState();
+            Inventory = new Inventory(10);
+            CoinList = new List<Coin>();
+        }
+
+        public void SetState(IState newState) => State = newState;
+    }
+
+
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            var machine = new VendingMachine();
+
+            Console.WriteLine("\nFilling inventory...");
+            FillInventory(machine);
+            DisplayInventory(machine);
+
+            User Usersuriya = new User("Suriya");
+
+            Console.WriteLine("\nInsert Coin button clicked...");
+            machine.State.ClickOnInsertCoinButton(machine);
+
+            machine.State.InsertCoin(machine, Coin.QUARTER);
+            machine.State.InsertCoin(machine, Coin.QUARTER);
+
+            Console.WriteLine("\nSelect product...");
+            machine.State.ClickOnStartProductSelectionButton(machine);
+            machine.State.ChooseProduct(machine, 102,Usersuriya);
+
+            machine.SetState(new IdleState());
+
+            User UserGanesh = new User("Ganesh");
+
+            Console.WriteLine("\nInsert Coin button clicked...");
+            machine.State.ClickOnInsertCoinButton(machine);
+
+            machine.State.InsertCoin(machine, Coin.QUARTER);
+            machine.State.InsertCoin(machine, Coin.QUARTER);
+
+            Console.WriteLine("\nSelect product...");
+            machine.State.ClickOnStartProductSelectionButton(machine);
+            machine.State.ChooseProduct(machine, 101, UserGanesh);
+
+            DisplayInventory(machine);
+
+            BuyersHistory history = new BuyersHistory();
+            history.printHistory();
+
+            Console.WriteLine("\nDone!");
+            Console.ReadLine();
+        }
+
+        static void FillInventory(VendingMachine machine)
+        {
+            var slots = machine.Inventory.Shelves;
+            for (int i = 0; i < slots.Count; i++)
+            {
+                var item = new Item();
+                if (i < 3) { item.Type = ItemType.COKE; item.Price = 12; }
+                else if (i < 5) { item.Type = ItemType.PEPSI; item.Price = 9; }
+                else if (i < 7) { item.Type = ItemType.JUICE; item.Price = 13; }
+                else { item.Type = ItemType.SODA; item.Price = 7; }
+
+                slots[i].Item = item;
+                slots[i].SoldOut = false;
+            }
+        }
+
+        static void DisplayInventory(VendingMachine machine)
+        {
+            foreach (var slot in machine.Inventory.Shelves)
+            {
+                Console.WriteLine($"Code: {slot.Code}, Item: {slot.Item.Type}, Price: {slot.Item.Price}, Available: {!slot.SoldOut}");
+            }
+        }
+    }
+}
