@@ -1,0 +1,328 @@
+using System;
+using System.Collections.Generic;
+
+namespace SplitwiseApp
+{
+    // ---------------- BALANCE ----------------
+    public class Balance
+    {
+        public double AmountOwe { get; set; }
+        public double AmountGetBack { get; set; }
+    }
+
+    // ---------------- USER EXPENSE BALANCE SHEET ----------------
+    public class UserExpenseBalanceSheet
+    {
+        public Dictionary<string, Balance> UserVsBalance { get; set; }
+        public double TotalYourExpense { get; set; }
+        public double TotalPayment { get; set; }
+        public double TotalYouOwe { get; set; }
+        public double TotalYouGetBack { get; set; }
+
+        public UserExpenseBalanceSheet()
+        {
+            UserVsBalance = new Dictionary<string, Balance>();
+            TotalYourExpense = 0;
+            TotalYouOwe = 0;
+            TotalYouGetBack = 0;
+            TotalPayment = 0;
+        }
+    }
+
+    // ---------------- USER ----------------
+    public class User
+    {
+        public string UserId { get; }
+        public string UserName { get; }
+        public UserExpenseBalanceSheet ExpenseBalanceSheet { get; }
+
+        public User(string id, string name)
+        {
+            UserId = id;
+            UserName = name;
+            ExpenseBalanceSheet = new UserExpenseBalanceSheet();
+        }
+    }
+
+    public class UserController
+    {
+        private List<User> userList = new List<User>();
+
+        public void AddUser(User user) => userList.Add(user);
+
+        public User GetUser(string userId) => userList.Find(u => u.UserId == userId);
+
+        public List<User> GetAllUsers() => userList;
+    }
+
+    // ---------------- SPLIT ----------------
+    public class Split
+    {
+        public User User { get; set; }
+        public double AmountOwe { get; set; }
+
+        public Split(User user, double amountOwe)
+        {
+            User = user;
+            AmountOwe = amountOwe;
+        }
+    }
+
+    public interface IExpenseSplit
+    {
+        void ValidateSplitRequest(List<Split> splitList, double totalAmount);
+    }
+
+    public class EqualExpenseSplit : IExpenseSplit
+    {
+        public void ValidateSplitRequest(List<Split> splitList, double totalAmount)
+        {
+            double shouldBe = totalAmount / splitList.Count;
+            foreach (var split in splitList)
+            {
+                if (Math.Abs(split.AmountOwe - shouldBe) > 0.01)
+                {
+                    throw new Exception("Invalid Equal Split!");
+                }
+            }
+        }
+    }
+
+    public class UnequalExpenseSplit : IExpenseSplit
+    {
+        public void ValidateSplitRequest(List<Split> splitList, double totalAmount)
+        {
+            double sum = 0;
+            foreach (var split in splitList) sum += split.AmountOwe;
+            if (Math.Abs(sum - totalAmount) > 0.01)
+                throw new Exception("Invalid Unequal Split!");
+        }
+    }
+
+    public class PercentageExpenseSplit : IExpenseSplit
+    {
+        public void ValidateSplitRequest(List<Split> splitList, double totalAmount)
+        {
+            double sum = 0;
+            foreach (var split in splitList) sum += split.AmountOwe;
+            if (Math.Abs(sum - totalAmount) > 0.01)
+                throw new Exception("Invalid Percentage Split!");
+        }
+    }
+
+    public enum ExpenseSplitType
+    {
+        EQUAL,
+        UNEQUAL,
+        PERCENTAGE
+    }
+
+    public static class SplitFactory
+    {
+        public static IExpenseSplit GetSplitObject(ExpenseSplitType splitType)
+        {
+            return splitType switch
+            {
+                ExpenseSplitType.EQUAL => new EqualExpenseSplit(),
+                ExpenseSplitType.UNEQUAL => new UnequalExpenseSplit(),
+                ExpenseSplitType.PERCENTAGE => new PercentageExpenseSplit(),
+                _ => null
+            };
+        }
+    }
+
+    // ---------------- EXPENSE ----------------
+    public class Expense
+    {
+        public string ExpenseId { get; }
+        public string Description { get; }
+        public double ExpenseAmount { get; }
+        public User PaidByUser { get; }
+        public ExpenseSplitType SplitType { get; }
+        public List<Split> SplitDetails { get; }
+
+        public Expense(string expenseId, double amount, string description,
+                       User paidByUser, ExpenseSplitType splitType, List<Split> splits)
+        {
+            ExpenseId = expenseId;
+            ExpenseAmount = amount;
+            Description = description;
+            PaidByUser = paidByUser;
+            SplitType = splitType;
+            SplitDetails = new List<Split>(splits);
+        }
+    }
+
+    public class ExpenseController
+    {
+        private BalanceSheetController balanceSheetController = new BalanceSheetController();
+
+        public Expense CreateExpense(string expenseId, string description, double expenseAmount,
+                                     List<Split> splitDetails, ExpenseSplitType splitType, User paidByUser)
+        {
+            var expenseSplit = SplitFactory.GetSplitObject(splitType);
+            expenseSplit.ValidateSplitRequest(splitDetails, expenseAmount);
+
+            var expense = new Expense(expenseId, expenseAmount, description, paidByUser, splitType, splitDetails);
+
+            balanceSheetController.UpdateUserExpenseBalanceSheet(paidByUser, splitDetails, expenseAmount);
+
+            return expense;
+        }
+    }
+
+    // ---------------- BALANCE SHEET ----------------
+    public class BalanceSheetController
+    {
+        public void UpdateUserExpenseBalanceSheet(User expensePaidBy, List<Split> splits, double totalExpenseAmount)
+        {
+            var paidBySheet = expensePaidBy.ExpenseBalanceSheet;
+            paidBySheet.TotalPayment += totalExpenseAmount;
+
+            foreach (var split in splits)
+            {
+                var userOwe = split.User;
+                var oweSheet = userOwe.ExpenseBalanceSheet;
+                double oweAmount = split.AmountOwe;
+
+                if (expensePaidBy.UserId == userOwe.UserId)
+                {
+                    paidBySheet.TotalYourExpense += oweAmount;
+                }
+                else
+                {
+                    // paid user
+                    paidBySheet.TotalYouGetBack += oweAmount;
+                    if (!paidBySheet.UserVsBalance.ContainsKey(userOwe.UserId))
+                        paidBySheet.UserVsBalance[userOwe.UserId] = new Balance();
+                    paidBySheet.UserVsBalance[userOwe.UserId].AmountGetBack += oweAmount;
+
+                    // owe user
+                    oweSheet.TotalYouOwe += oweAmount;
+                    oweSheet.TotalYourExpense += oweAmount;
+                    if (!oweSheet.UserVsBalance.ContainsKey(expensePaidBy.UserId))
+                        oweSheet.UserVsBalance[expensePaidBy.UserId] = new Balance();
+                    oweSheet.UserVsBalance[expensePaidBy.UserId].AmountOwe += oweAmount;
+                }
+            }
+        }
+
+        public void ShowBalanceSheetOfUser(User user)
+        {
+            Console.WriteLine("---------------------------------------");
+            Console.WriteLine($"Balance sheet of user : {user.UserId}");
+            var sheet = user.ExpenseBalanceSheet;
+            Console.WriteLine($"TotalYourExpense: {sheet.TotalYourExpense}");
+            Console.WriteLine($"TotalGetBack: {sheet.TotalYouGetBack}");
+            Console.WriteLine($"TotalYourOwe: {sheet.TotalYouOwe}");
+            Console.WriteLine($"TotalPaymentMade: {sheet.TotalPayment}");
+            foreach (var kv in sheet.UserVsBalance)
+            {
+                Console.WriteLine($"UserID: {kv.Key} YouGetBack: {kv.Value.AmountGetBack} YouOwe: {kv.Value.AmountOwe}");
+            }
+            Console.WriteLine("---------------------------------------");
+        }
+    }
+
+    // ---------------- GROUP ----------------
+    public class Group
+    {
+        public string GroupId { get; set; }
+        public string GroupName { get; set; }
+        public List<User> Members { get; set; }
+        public List<Expense> Expenses { get; set; }
+        private ExpenseController expenseController;
+
+        public Group()
+        {
+            Members = new List<User>();
+            Expenses = new List<Expense>();
+            expenseController = new ExpenseController();
+        }
+
+        public void AddMember(User user) => Members.Add(user);
+
+        public Expense CreateExpense(string id, string desc, double amount,
+                                     List<Split> splits, ExpenseSplitType type, User paidBy)
+        {
+            var exp = expenseController.CreateExpense(id, desc, amount, splits, type, paidBy);
+            Expenses.Add(exp);
+            return exp;
+        }
+    }
+
+    public class GroupController
+    {
+        private List<Group> groups = new List<Group>();
+
+        public void CreateNewGroup(string id, string name, User createdBy)
+        {
+            var group = new Group { GroupId = id, GroupName = name };
+            group.AddMember(createdBy);
+            groups.Add(group);
+        }
+
+        public Group GetGroup(string groupId) => groups.Find(g => g.GroupId == groupId);
+    }
+
+    // ---------------- MAIN SPLITWISE APP ----------------
+    public class Splitwise
+    {
+        private UserController userController = new UserController();
+        private GroupController groupController = new GroupController();
+        private BalanceSheetController balanceSheetController = new BalanceSheetController();
+
+        public void Demo()
+        {
+            SetupUserAndGroup();
+
+            var group = groupController.GetGroup("G1001");
+            group.AddMember(userController.GetUser("U2001"));
+            group.AddMember(userController.GetUser("U3001"));
+
+            var splits1 = new List<Split>
+            {
+                new Split(userController.GetUser("U1001"), 300),
+                new Split(userController.GetUser("U2001"), 300),
+                new Split(userController.GetUser("U3001"), 300)
+            };
+            group.CreateExpense("Exp1001", "Breakfast", 900, splits1, ExpenseSplitType.EQUAL, userController.GetUser("U1001"));
+
+            var splits2 = new List<Split>
+            {
+                new Split(userController.GetUser("U1001"), 400),
+                new Split(userController.GetUser("U2001"), 100)
+            };
+            group.CreateExpense("Exp1002", "Lunch", 500, splits2, ExpenseSplitType.UNEQUAL, userController.GetUser("U2001"));
+
+            foreach (var user in userController.GetAllUsers())
+            {
+                balanceSheetController.ShowBalanceSheetOfUser(user);
+            }
+        }
+
+        private void SetupUserAndGroup()
+        {
+            var user1 = new User("U1001", "User1");
+            var user2 = new User("U2001", "User2");
+            var user3 = new User("U3001", "User3");
+
+            userController.AddUser(user1);
+            userController.AddUser(user2);
+            userController.AddUser(user3);
+
+            groupController.CreateNewGroup("G1001", "Outing with Friends", user1);
+        }
+    }
+
+    // ---------------- PROGRAM ----------------
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            var app = new Splitwise();
+            app.Demo();
+            Console.ReadLine();
+        }
+    }
+}
