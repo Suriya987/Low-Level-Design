@@ -1,0 +1,565 @@
+using System;
+using System.Collections.Generic;
+
+namespace LldCricbuzz
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            var ob = new Program();
+
+            Team teamA = ob.AddTeam("India");
+            Team teamB = ob.AddTeam("SriLanka");
+
+            IMatchType matchType = new T20MatchType();
+            Match match = new Match(teamA, teamB, null, "SMS STADIUM", matchType);
+            match.StartMatch();
+        }
+
+        private Team AddTeam(string name)
+        {
+            var playerDetails = new Queue<PlayerDetails>();
+
+            var p1 = AddPlayer(name + "1", PlayerType.Allrounder);
+            var p2 = AddPlayer(name + "2", PlayerType.Allrounder);
+            var p3 = AddPlayer(name + "3", PlayerType.Allrounder);
+            var p4 = AddPlayer(name + "4", PlayerType.Allrounder);
+            var p5 = AddPlayer(name + "5", PlayerType.Allrounder);
+            var p6 = AddPlayer(name + "6", PlayerType.Allrounder);
+            var p7 = AddPlayer(name + "7", PlayerType.Allrounder);
+            var p8 = AddPlayer(name + "8", PlayerType.Allrounder);
+            var p9 = AddPlayer(name + "9", PlayerType.Allrounder);
+            var p10 = AddPlayer(name + "10", PlayerType.Allrounder);
+            var p11 = AddPlayer(name + "11", PlayerType.Allrounder);
+
+            playerDetails.Enqueue(p1);
+            playerDetails.Enqueue(p2);
+            playerDetails.Enqueue(p3);
+            playerDetails.Enqueue(p4);
+            playerDetails.Enqueue(p5);
+            playerDetails.Enqueue(p6);
+            playerDetails.Enqueue(p7);
+            playerDetails.Enqueue(p8);
+            playerDetails.Enqueue(p9);
+            playerDetails.Enqueue(p10);
+            playerDetails.Enqueue(p11);
+
+            var bowlers = new List<PlayerDetails> { p8, p9, p10, p11 };
+
+            var team = new Team(name, playerDetails, new List<PlayerDetails>(), bowlers);
+            return team;
+        }
+
+        private PlayerDetails AddPlayer(string name, PlayerType playerType)
+        {
+            var person = new Person { Name = name };
+            var playerDetails = new PlayerDetails(person, playerType);
+            return playerDetails;
+        }
+    }
+
+    // ========== Match & MatchType ==========
+    public class Match
+    {
+        private Team teamA;
+        private Team teamB;
+        private DateTime? matchDate;
+        private string venue;
+        private Team tossWinner;
+        private InningDetails[] innings;
+        private IMatchType matchType;
+        private static readonly Random _random = new Random();
+
+        public Match(Team teamA, Team teamB, DateTime? matchDate, string venue, IMatchType matchType)
+        {
+            this.teamA = teamA;
+            this.teamB = teamB;
+            this.matchDate = matchDate;
+            this.venue = venue;
+            this.matchType = matchType;
+            innings = new InningDetails[2];
+        }
+
+        public void StartMatch()
+        {
+            tossWinner = Toss(teamA, teamB);
+
+            for (int inning = 1; inning <= 2; inning++)
+            {
+                InningDetails inningDetails;
+                Team bowlingTeam;
+                Team battingTeam;
+
+                if (inning == 1)
+                {
+                    battingTeam = tossWinner;
+                    bowlingTeam = tossWinner.TeamName == teamA.TeamName ? teamB : teamA;
+                    inningDetails = new InningDetails(battingTeam, bowlingTeam, matchType);
+                    inningDetails.Start(-1);
+                }
+                else
+                {
+                    bowlingTeam = tossWinner;
+                    battingTeam = tossWinner.TeamName == teamA.TeamName ? teamB : teamA;
+                    inningDetails = new InningDetails(battingTeam, bowlingTeam, matchType);
+                    inningDetails.Start(innings[0].GetTotalRuns());
+                    if (bowlingTeam.GetTotalRuns() > battingTeam.GetTotalRuns())
+                    {
+                        bowlingTeam.IsWinner = true;
+                    }
+                }
+
+                innings[inning - 1] = inningDetails;
+
+                Console.WriteLine();
+                Console.WriteLine($"INNING {inning} -- total Run: {battingTeam.GetTotalRuns()}");
+                Console.WriteLine($"---Batting ScoreCard : {battingTeam.TeamName}---");
+                battingTeam.PrintBattingScoreCard();
+                Console.WriteLine();
+                Console.WriteLine($"---Bowling ScoreCard : {bowlingTeam.TeamName}---");
+                bowlingTeam.PrintBowlingScoreCard();
+            }
+
+            Console.WriteLine();
+            if (teamA.IsWinner)
+            {
+                Console.WriteLine($"---WINNER--- {teamA.TeamName}");
+            }
+            else
+            {
+                Console.WriteLine($"---WINNER--- {teamB.TeamName}");
+            }
+        }
+
+        private Team Toss(Team teamA, Team teamB)
+        {
+            return _random.NextDouble() < 0.5 ? teamA : teamB;
+        }
+    }
+
+    public interface IMatchType
+    {
+        int NoOfOvers();
+        int MaxOverCountBowlers();
+    }
+
+    public class OneDayMatchType : IMatchType
+    {
+        public int NoOfOvers() => 50;
+        public int MaxOverCountBowlers() => 10;
+    }
+
+    public class T20MatchType : IMatchType
+    {
+        public int NoOfOvers() => 20;
+        public int MaxOverCountBowlers() => 5;
+    }
+
+    // ========== Inning ==========
+    public enum BallType { Normal, WideBall, NoBall }
+    public enum RunType { Zero, One, Two, Three, Four, Six }
+
+    public class BallDetails
+    {
+        public int BallNumber { get; }
+        public BallType BallType { get; private set; }
+        public RunType RunType { get; private set; }
+        public PlayerDetails PlayedBy { get; private set; }
+        public PlayerDetails BowledBy { get; private set; }
+        public Wicket Wicket { get; private set; }
+        private readonly List<IScoreUpdaterObserver> _scoreUpdaterObservers = new List<IScoreUpdaterObserver>();
+        private static readonly Random _random = new Random();
+
+        public BallDetails(int ballNumber)
+        {
+            BallNumber = ballNumber;
+            _scoreUpdaterObservers.Add(new BowlingScoreUpdater());
+            _scoreUpdaterObservers.Add(new BattingScoreUpdater());
+        }
+
+        public void StartBallDelivery(Team battingTeam, Team bowlingTeam, OverDetails over)
+        {
+            PlayedBy = battingTeam.GetStriker();
+            BowledBy = over.BowledBy;
+            BallType = BallType.Normal;
+
+            if (IsWicketTaken())
+            {
+                RunType = RunType.Zero;
+                Wicket = new Wicket(WicketType.Bold, bowlingTeam.GetCurrentBowler(), over, this);
+                battingTeam.SetStriker(null);
+            }
+            else
+            {
+                RunType = GetRunType();
+                if (RunType == RunType.One || RunType == RunType.Three)
+                {
+                    var temp = battingTeam.GetStriker();
+                    battingTeam.SetStriker(battingTeam.GetNonStriker());
+                    battingTeam.SetNonStriker(temp);
+                }
+            }
+
+            NotifyUpdaters(this);
+        }
+
+        private void NotifyUpdaters(BallDetails ballDetails)
+        {
+            foreach (var observer in _scoreUpdaterObservers)
+            {
+                observer.Update(ballDetails);
+            }
+        }
+
+        private RunType GetRunType()
+        {
+            double val = _random.NextDouble();
+            if (val <= 0.2) return RunType.One;
+            if (val >= 0.3 && val <= 0.5) return RunType.Two;
+            if (val >= 0.6 && val <= 0.8) return RunType.Four;
+            return RunType.Six;
+        }
+
+        private bool IsWicketTaken()
+        {
+            return _random.NextDouble() < 0.2;
+        }
+    }
+
+    public class OverDetails
+    {
+        public int OverNumber { get; }
+        public List<BallDetails> Balls { get; }
+        public int ExtraBallsCount { get; private set; }
+        public PlayerDetails BowledBy { get; }
+
+        public OverDetails(int overNumber, PlayerDetails bowledBy)
+        {
+            OverNumber = overNumber;
+            Balls = new List<BallDetails>();
+            BowledBy = bowledBy;
+        }
+
+        public bool StartOver(Team battingTeam, Team bowlingTeam, int runsToWin)
+        {
+            int ballCount = 1;
+            while (ballCount <= 6)
+            {
+                var ball = new BallDetails(ballCount);
+                ball.StartBallDelivery(battingTeam, bowlingTeam, this);
+
+                if (ball.BallType == BallType.Normal)
+                {
+                    Balls.Add(ball);
+                    ballCount++;
+                    if (ball.Wicket != null)
+                    {
+                        battingTeam.ChooseNextBatsMan();
+                    }
+
+                    if (runsToWin != -1 && battingTeam.GetTotalRuns() >= runsToWin)
+                    {
+                        battingTeam.IsWinner = true;
+                        return true;
+                    }
+                }
+                else
+                {
+                    ExtraBallsCount++;
+                }
+            }
+            return false;
+        }
+    }
+
+    public class InningDetails
+    {
+        private Team _battingTeam;
+        private Team _bowlingTeam;
+        private IMatchType _matchType;
+        private List<OverDetails> _overs;
+
+        public InningDetails(Team battingTeam, Team bowlingTeam, IMatchType matchType)
+        {
+            _battingTeam = battingTeam;
+            _bowlingTeam = bowlingTeam;
+            _matchType = matchType;
+            _overs = new List<OverDetails>();
+        }
+
+        public void Start(int runsToWin)
+        {
+            try { _battingTeam.ChooseNextBatsMan(); }
+            catch { }
+
+            int noOfOvers = _matchType.NoOfOvers();
+            for (int overNumber = 1; overNumber <= noOfOvers; overNumber++)
+            {
+                _bowlingTeam.ChooseNextBowler(_matchType.MaxOverCountBowlers());
+                var over = new OverDetails(overNumber, _bowlingTeam.GetCurrentBowler());
+                _overs.Add(over);
+                try
+                {
+                    bool won = over.StartOver(_battingTeam, _bowlingTeam, runsToWin);
+                    if (won) break;
+                }
+                catch { break; }
+
+                var temp = _battingTeam.GetStriker();
+                _battingTeam.SetStriker(_battingTeam.GetNonStriker());
+                _battingTeam.SetNonStriker(temp);
+            }
+        }
+
+        public int GetTotalRuns() => _battingTeam.GetTotalRuns();
+    }
+
+    // ========== Score Updaters ==========
+    public interface IScoreUpdaterObserver { void Update(BallDetails ballDetails); }
+
+    public class BattingScoreUpdater : IScoreUpdaterObserver
+    {
+        public void Update(BallDetails ballDetails)
+        {
+            int run = 0;
+            if (ballDetails.RunType == RunType.One) run = 1;
+            else if (ballDetails.RunType == RunType.Two) run = 2;
+            else if (ballDetails.RunType == RunType.Four)
+            {
+                run = 4;
+                ballDetails.PlayedBy.BattingScoreCard.TotalFours++;
+            }
+            else if (ballDetails.RunType == RunType.Six)
+            {
+                run = 6;
+                ballDetails.PlayedBy.BattingScoreCard.TotalSixes++;
+            }
+
+            ballDetails.PlayedBy.BattingScoreCard.TotalRuns += run;
+            ballDetails.PlayedBy.BattingScoreCard.TotalBallsPlayed++;
+
+            if (ballDetails.Wicket != null)
+            {
+                ballDetails.PlayedBy.BattingScoreCard.WicketDetails = ballDetails.Wicket;
+            }
+        }
+    }
+
+    public class BowlingScoreUpdater : IScoreUpdaterObserver
+    {
+        public void Update(BallDetails ballDetails)
+        {
+            if (ballDetails.BallNumber == 6 && ballDetails.BallType == BallType.Normal)
+            {
+                ballDetails.BowledBy.BowlingScoreCard.TotalOversCount++;
+            }
+
+            if (ballDetails.RunType == RunType.One) ballDetails.BowledBy.BowlingScoreCard.RunsGiven += 1;
+            else if (ballDetails.RunType == RunType.Two) ballDetails.BowledBy.BowlingScoreCard.RunsGiven += 2;
+            else if (ballDetails.RunType == RunType.Four) ballDetails.BowledBy.BowlingScoreCard.RunsGiven += 4;
+            else if (ballDetails.RunType == RunType.Six) ballDetails.BowledBy.BowlingScoreCard.RunsGiven += 6;
+
+            if (ballDetails.Wicket != null) ballDetails.BowledBy.BowlingScoreCard.WicketsTaken++;
+
+            if (ballDetails.BallType == BallType.NoBall) ballDetails.BowledBy.BowlingScoreCard.NoBallCount++;
+            if (ballDetails.BallType == BallType.WideBall) ballDetails.BowledBy.BowlingScoreCard.WideBallCount++;
+        }
+    }
+
+    // ========== Team & Players ==========
+    public enum PlayerType { Batsman, Bowler, WicketKeeper, Captain, Allrounder }
+    public enum WicketType { Runout, Bold, Catch }
+
+    public class Person
+    {
+        public string Name { get; set; }
+        public int Age { get; set; }
+        public string Address { get; set; }
+    }
+
+    public class PlayerDetails
+    {
+        public Person Person { get; }
+        public PlayerType PlayerType { get; }
+        public BattingScoreCard BattingScoreCard { get; }
+        public BowlingScoreCard BowlingScoreCard { get; }
+
+        public PlayerDetails(Person person, PlayerType playerType)
+        {
+            Person = person;
+            PlayerType = playerType;
+            BattingScoreCard = new BattingScoreCard();
+            BowlingScoreCard = new BowlingScoreCard();
+        }
+
+        public void PrintBattingScoreCard()
+        {
+            Console.WriteLine($"PlayerName: {Person.Name} -- totalRuns: {BattingScoreCard.TotalRuns} -- totalBallsPlayed: {BattingScoreCard.TotalBallsPlayed} -- 4s: {BattingScoreCard.TotalFours} -- 6s: {BattingScoreCard.TotalSixes} -- outby: {(BattingScoreCard.WicketDetails != null ? BattingScoreCard.WicketDetails.TakenBy.Person.Name : "notout")}");
+        }
+
+        public void PrintBowlingScoreCard()
+        {
+            Console.WriteLine($"PlayerName: {Person.Name} -- totalOversThrown: {BowlingScoreCard.TotalOversCount} -- totalRunsGiven: {BowlingScoreCard.RunsGiven} -- WicketsTaken: {BowlingScoreCard.WicketsTaken}");
+        }
+    }
+
+    public class BattingScoreCard
+    {
+        public int TotalRuns { get; set; }
+        public int TotalBallsPlayed { get; set; }
+        public int TotalFours { get; set; }
+        public int TotalSixes { get; set; }
+        public double StrikeRate { get; set; }
+        public Wicket WicketDetails { get; set; }
+    }
+
+    public class BowlingScoreCard
+    {
+        public int TotalOversCount { get; set; }
+        public int RunsGiven { get; set; }
+        public int WicketsTaken { get; set; }
+        public int NoBallCount { get; set; }
+        public int WideBallCount { get; set; }
+        public double EconomyRate { get; set; }
+    }
+
+    public class PlayerBattingController
+    {
+        private Queue<PlayerDetails> _yetToPlay;
+        private PlayerDetails _striker;
+        private PlayerDetails _nonStriker;
+
+        public PlayerBattingController(Queue<PlayerDetails> playing11)
+        {
+            _yetToPlay = new Queue<PlayerDetails>(playing11);
+        }
+
+        public void GetNextPlayer()
+        {
+            if (_yetToPlay.Count == 0) throw new Exception("No players left");
+
+            if (_striker == null) _striker = _yetToPlay.Dequeue();
+            if (_nonStriker == null) _nonStriker = _yetToPlay.Dequeue();
+        }
+
+        public PlayerDetails GetStriker() => _striker;
+        public PlayerDetails GetNonStriker() => _nonStriker;
+        public void SetStriker(PlayerDetails p) => _striker = p;
+        public void SetNonStriker(PlayerDetails p) => _nonStriker = p;
+    }
+
+    public class PlayerBowlingController
+    {
+        private LinkedList<PlayerDetails> _bowlersList;
+        private Dictionary<PlayerDetails, int> _bowlerVsOverCount;
+        private PlayerDetails _currentBowler;
+
+        public PlayerBowlingController(List<PlayerDetails> bowlers)
+        {
+            SetBowlersList(bowlers);
+        }
+
+        private void SetBowlersList(List<PlayerDetails> bowlers)
+        {
+            _bowlersList = new LinkedList<PlayerDetails>();
+            _bowlerVsOverCount = new Dictionary<PlayerDetails, int>();
+            foreach (var bowler in bowlers)
+            {
+                _bowlersList.AddLast(bowler);
+                _bowlerVsOverCount[bowler] = 0;
+            }
+        }
+
+        public void GetNextBowler(int maxOverCountPerBowler)
+        {
+            var first = _bowlersList.First.Value;
+            _bowlersList.RemoveFirst();
+            if (_bowlerVsOverCount[first] + 1 == maxOverCountPerBowler)
+            {
+                _currentBowler = first;
+            }
+            else
+            {
+                _currentBowler = first;
+                _bowlersList.AddLast(first);
+                _bowlerVsOverCount[first] = _bowlerVsOverCount[first] + 1;
+            }
+        }
+
+        public PlayerDetails GetCurrentBowler() => _currentBowler;
+    }
+
+    public class Team
+    {
+        public string TeamName { get; }
+        public Queue<PlayerDetails> Playing11 { get; }
+        public List<PlayerDetails> Bench { get; }
+        private PlayerBattingController _battingController;
+        private PlayerBowlingController _bowlingController;
+        public bool IsWinner { get; set; }
+
+        public Team(string teamName, Queue<PlayerDetails> playing11, List<PlayerDetails> bench, List<PlayerDetails> bowlers)
+        {
+            TeamName = teamName;
+            Playing11 = new Queue<PlayerDetails>(playing11);
+            Bench = bench;
+            _battingController = new PlayerBattingController(Playing11);
+            _bowlingController = new PlayerBowlingController(bowlers);
+        }
+
+        public void ChooseNextBatsMan() => _battingController.GetNextPlayer();
+        public void ChooseNextBowler(int maxOverCountPerBowler) => _bowlingController.GetNextBowler(maxOverCountPerBowler);
+
+        public PlayerDetails GetStriker() => _battingController.GetStriker();
+        public PlayerDetails GetNonStriker() => _battingController.GetNonStriker();
+        public void SetStriker(PlayerDetails p) => _battingController.SetStriker(p);
+        public void SetNonStriker(PlayerDetails p) => _battingController.SetNonStriker(p);
+        public PlayerDetails GetCurrentBowler() => _bowlingController.GetCurrentBowler();
+
+        public void PrintBattingScoreCard()
+        {
+            foreach (var player in Playing11)
+            {
+                player.PrintBattingScoreCard();
+            }
+        }
+
+        public void PrintBowlingScoreCard()
+        {
+            foreach (var player in Playing11)
+            {
+                if (player.BowlingScoreCard.TotalOversCount > 0)
+                {
+                    player.PrintBowlingScoreCard();
+                }
+            }
+        }
+
+        public int GetTotalRuns()
+        {
+            int totalRun = 0;
+            foreach (var player in Playing11)
+            {
+                totalRun += player.BattingScoreCard.TotalRuns;
+            }
+            return totalRun;
+        }
+    }
+
+    public class Wicket
+    {
+        public WicketType WicketType { get; }
+        public PlayerDetails TakenBy { get; }
+        public OverDetails OverDetail { get; }
+        public BallDetails BallDetail { get; }
+
+        public Wicket(WicketType wicketType, PlayerDetails takenBy, OverDetails overDetail, BallDetails ballDetail)
+        {
+            WicketType = wicketType;
+            TakenBy = takenBy;
+            OverDetail = overDetail;
+            BallDetail = ballDetail;
+        }
+    }
+}
