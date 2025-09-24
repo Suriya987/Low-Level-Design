@@ -154,10 +154,25 @@ public class VehicleStore
 
     public Reservation AddReservation(int id,Vehicle vehicle,User user,DateTime ReservingDate,DateTime From , DateTime To)
     {
-        Reservation reservation = new Reservation(id,vehicle,user,ReservingDate,From,To);
-        vehicle.VehicleStatus = VehicleStatus.Inactive;
-        reservations.Add(reservation);
-        return reservation;
+        if (vehicle.VehicleStatus != VehicleStatus.Available)
+        throw new Exception("Vehicle already locked or reserved");
+
+    // Lock the vehicle for 10 mins
+    vehicle.VehicleStatus = VehicleStatus.Locked;
+
+    // Create reservation
+    Reservation reservation = new Reservation(id, vehicle, user, reservingDate, from, to);
+    reservations.Add(reservation);
+
+    // Schedule unlock after 10 mins if payment not done
+    Task.Delay(TimeSpan.FromMinutes(10)).ContinueWith(_ =>
+    {
+        if (reservation != null && !reservations.Contains(reservation)) return;
+        if (!new Bill(reservation).isPaid)
+            vehicle.VehicleStatus = VehicleStatus.Available;
+    });
+
+    return reservation;
     }   
 
     public void ParkVehicle(Vehicle vehicle)
