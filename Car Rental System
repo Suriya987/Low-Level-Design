@@ -1,0 +1,266 @@
+Design a car rental System
+
+Basic Flow:
+
+user gets into the App search the store using the Location and then  Go to the store he wants and then choose the car based on the type 
+Makes the Reservation get the bill and then Pay using that Bill
+Park the vehicle
+
+Objects
+user , payment , bill , Vehicle , VehicleStore,VehicleInventoryManagement,Reservation , Location 
+
+using System;
+namespace CarRentalSystem;
+public class User
+{
+    public int UserId { get; set; }
+    public string UserName { get; set; }
+    public string DrivingLicense {  get; set; }
+    public User(int id,string name,string license)
+    {
+        UserId = id;
+        UserName = name;
+        DrivingLicense = license;
+    }
+}
+
+public class Location
+{
+    public string Address { get; set; }
+    public string City { get; set; }
+    public string State { get; set; }
+    public string PinCode { get; set; }
+    public Location(string addr,string City ,string state,string pincode)
+    {
+        Address = addr;
+        this.City = City;
+        State = state;
+        PinCode = pincode;
+    }
+}
+
+public enum VehicleType
+{
+    TwoWheeler,
+    FourWheeler
+}
+
+public enum VehicleStatus
+{
+    Active,
+    Inactive
+}
+
+public class Vehicle
+{
+    public int VehicleId { get; set; }
+    public string VehicleName { get; set; }
+    public string VehicleNo { get; set; }
+    public VehicleType VehicleType { get; set; }
+    public long KmDriven {  get; set; }
+    public VehicleStatus VehicleStatus { get; set; }
+
+    public Vehicle(int id,string name ,string VNo,VehicleType vehicleType,long kmDriven,VehicleStatus status)
+    {
+        VehicleId = id;
+        VehicleName = name;
+        VehicleNo = VNo;
+        VehicleType = vehicleType;
+        KmDriven = kmDriven;
+        VehicleStatus = status;
+    }
+
+}
+
+public class Reservation
+{
+    public int ReservationId { get; set; }
+    public Vehicle Vehicle { get; set; }
+    public User user { get; set; }
+    public DateTime ReservedDate { get; set; }
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+
+    public Reservation(int id,Vehicle vehicle,User user,DateTime reservedDate,DateTime from,DateTime To)
+    {
+        ReservationId = id;
+        Vehicle = vehicle;
+        user = user;
+        ReservedDate = reservedDate;
+        FromDate = from;
+        ToDate = To;
+    }
+}
+
+public class Bill
+{
+    public Reservation reservation { get; set; }
+
+    public bool isPaid { get; set; }
+
+    public decimal Amount { get; set; }
+
+    public Bill(Reservation reservation)
+    {
+        reservation = reservation;
+    }
+    public void CalculateAmount()
+    {
+        decimal amount = 500;
+        Amount = amount;
+        SetStatus(false);
+    }
+    public void SetStatus(bool status)
+    {
+        isPaid = status;
+    }
+}
+
+public abstract class IPayment
+{
+    public Bill bill { get; set; }
+    public abstract void Pay(int amount,Bill bill);
+}
+
+public class CashPayment:IPayment
+{
+    public override void Pay(int amount,Bill bill)
+    {
+        bill.isPaid = true;
+    }
+}
+
+public class UpiPayment : IPayment
+{
+    public override void Pay(int amount, Bill bill)
+    {
+        bill.isPaid = true;
+    }
+}
+
+public class VehicleStore
+{
+    public VehicleInventoryManagement VehiclesList { get; set; }
+    public List<Reservation> reservations { get; set; }
+
+    public Location location { get; set; }
+
+    public VehicleStore(VehicleInventoryManagement vehicleInventory,Location location)
+    {
+        VehiclesList = vehicleInventory;
+        reservations = new List<Reservation>();
+        this.location = location;
+    }
+
+    public Reservation AddReservation(int id,Vehicle vehicle,User user,DateTime ReservingDate,DateTime From , DateTime To)
+    {
+        Reservation reservation = new Reservation(id,vehicle,user,ReservingDate,From,To);
+        vehicle.VehicleStatus = VehicleStatus.Inactive;
+        reservations.Add(reservation);
+        return reservation;
+    }   
+
+    public void ParkVehicle(Vehicle vehicle)
+    {
+        vehicle.VehicleStatus=VehicleStatus.Active;
+    }
+}
+
+public class VehicleInventoryManagement
+{
+    List<Vehicle> Vehicles { get; set; }
+
+    public VehicleInventoryManagement(List<Vehicle> vehicles)
+    {
+        Vehicles = vehicles;
+    }
+
+    public void Addvehicle(Vehicle vehicle)
+    {
+        Vehicles.Add(vehicle);
+    }
+
+    public Vehicle Getvehicle(int id)
+    {
+        return Vehicles[id];
+    }
+}
+
+public class VehicleRentalSystem
+{
+    public List<User> users { get; set; }
+    public List<VehicleStore> VehicleStores { get; set; }
+
+    public VehicleRentalSystem(List<User> user,List<VehicleStore> store)
+    {
+        users=user;
+        VehicleStores=store;
+    }
+
+    public VehicleStore GetVehicleStore()
+    {
+        return VehicleStores[0];
+    }
+
+    //Crud  for the vehicles add and vehicleStores Add
+}
+
+
+public class Drivermethod
+{
+    public static void main(string[] args)
+    {
+        //create a List<users>   , List<vehicleStore
+
+        //i need to create a VehicleRentalSystem where it accepts the List<user> and then the List<Stores>
+
+        Drivermethod drivermethod = new Drivermethod();
+
+        var UserList = drivermethod.CreateusersList();
+        var VehicleList = drivermethod.CreateVehicles();
+        var Stores=drivermethod.CreateStores(VehicleList);
+
+        VehicleRentalSystem rentalSystem = new VehicleRentalSystem(UserList, Stores);
+
+        User user1 = rentalSystem.users.First();
+
+        //make a reservation  for that get a vehicle store
+        VehicleStore SSStore= rentalSystem.GetVehicleStore();
+
+        Vehicle vehicle=SSStore.VehiclesList.Getvehicle(123);
+
+        Reservation reservation= SSStore.AddReservation(678,vehicle,user1,DateTime.Now,DateTime.Now,DateTime.Now);
+
+        Bill bill=new Bill(reservation);
+
+        IPayment Cash = new CashPayment();
+        Cash.Pay(500, bill);
+
+    }
+
+    public List<User> CreateusersList()
+    {
+        User Suriya = new User(123, "Suriya", "TBM1230I");
+        User Sudhar = new User(321, "Sudhar", "NPM3210I");
+
+        return new List<User> { Suriya, Sudhar };
+    }
+
+    public List<Vehicle>  CreateVehicles()
+    {
+        Vehicle Hyundai = new Vehicle(123, "Hyundai", "TN28AC8092", VehicleType.FourWheeler, 89000, VehicleStatus.Active);
+        Vehicle JeepCompass = new Vehicle(567, "JeepCompass", "TN526289", VehicleType.FourWheeler, 89000, VehicleStatus.Active);
+        return new List<Vehicle> { Hyundai, JeepCompass };
+    }
+
+    public List<VehicleStore> CreateStores(List<Vehicle> vehicles)
+    {
+        VehicleInventoryManagement vehicleInventoryManagement=new VehicleInventoryManagement(vehicles);
+
+        Location SSVehicleLocation = new Location("2/8A , NarayanasamyStreet,Sholinganallur", "Chennai", "TamilNadu", "600119");
+
+        VehicleStore SSVehicles=new VehicleStore(vehicleInventoryManagement,SSVehicleLocation);
+
+        return new List<VehicleStore> { SSVehicles };
+    }
+}
