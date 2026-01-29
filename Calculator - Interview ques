@@ -185,6 +185,7 @@ class Calculator
 
         char carry = '0';
         string result = "";
+        string dummy = "";
 
         while (v1a || v2a)
         {
@@ -196,6 +197,8 @@ class Calculator
             carry = added.carry;
 
             result = digit+result;
+
+            ValidateInputAsync( ref result, ref dummy); //evry time we have to validate whether our output is exceed the capacity or not 
 
             v1a = v1a && v1.MoveNext();
             v2a= v2a && v2.MoveNext();
