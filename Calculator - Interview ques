@@ -1,0 +1,221 @@
+////Calculator
+
+
+
+using System;
+using System.ComponentModel.DataAnnotations;
+
+class Calculator
+{
+    private int MaxIntegerVal;
+    private string MaxInputVal;
+    private string Region;
+
+    //configured the values
+    public Calculator(int MaxIntegerVal,string MaxInputVal , string Region)
+    {
+        this.MaxInputVal = MaxInputVal;
+        this.MaxIntegerVal = MaxIntegerVal;
+    }
+
+    public Calculator(string Region)
+    {
+        this.Region = Region;
+        GetConfiguredValues();
+    }
+
+    private void GetConfiguredValues()
+    {
+
+    }
+
+     private string GetNormalizedInput(string input)
+    {
+        string NormalizedData = "";
+        foreach (var item in input)
+        {
+
+            if (((item - 48) > '0' - 48) && NormalizedData == "")
+            {
+                NormalizedData += item;
+            }
+            else if(NormalizedData!="")
+            {
+                NormalizedData += item;
+            }
+        }
+
+        return NormalizedData;
+    }
+
+
+    private void ValidateInputAsync(ref string value1,ref string value2)
+    {
+        //Normalizing   limit ->  0004356  -> 4356
+        string InputLimit = GetNormalizedInput(MaxInputVal);
+        value1=GetNormalizedInput(value1);
+        value2=GetNormalizedInput(value2);
+
+        //if the limit length is less than the any of the input then invalid 
+        if(InputLimit.Length < value1.Length || InputLimit.Length< value2.Length)
+        {
+            throw new ArgumentException("Input data is invalid");
+        }
+
+        //if the size is matching 
+        if (InputLimit[0]-48 < value1[0]-48 || InputLimit[0]-48 < value2[0]-48)
+        {
+            throw new ArgumentException("Input data is invalid");
+        }
+        else
+        {
+            //validate val1 
+            var input = InputLimit.GetEnumerator(); // used to traverse the string without finding the length
+            var val1=value1.GetEnumerator();
+            var val2=value2.GetEnumerator();
+
+            bool inputPtr=input.MoveNext();
+            bool val1Ptr=val1.MoveNext();
+            bool val2Ptr=val2.MoveNext();
+
+            while(inputPtr && val1Ptr)
+            {
+                if(input.Current < val1.Current)
+                {
+                    throw new Exception("Number overflow");
+                }
+
+                if (input.Current > val1.Current)
+                    break;
+
+
+                inputPtr=inputPtr && input.MoveNext(); //moving the current one 
+                val1Ptr=val1Ptr && val1.MoveNext();  
+            }
+
+            input = InputLimit.GetEnumerator();
+             inputPtr = input.MoveNext();
+             val2Ptr = val2.MoveNext();
+
+            //validate val2
+            while (inputPtr && val2Ptr)
+            {
+                if (input.Current < val2.Current)
+                {
+                    throw new Exception("Number overflow");
+                }
+
+                if (input.Current > val2.Current)
+                    break;
+
+                inputPtr = inputPtr && input.MoveNext(); //moving the current one 
+                val2Ptr = val2Ptr && val2.MoveNext();
+            }
+        }
+    }
+
+    public string ReverseString(string  input)
+    {
+        string rev = "";
+
+        foreach (var item in input)
+        {
+            rev = item + rev;
+        }
+        return rev;
+    }
+
+
+
+    (char digit, char carry) AddDigit(char a, char b, char carryIn)
+    {
+        char sum = a;
+        char carryOut = '0';
+
+        // add b into sum
+        char temp = b;
+        while (temp > '0')
+        {
+            if (sum == '9')
+            {
+                sum = '0';
+                carryOut = '1';   // carry to next column
+            }
+            else
+            {
+                sum = (char)(sum + 1);
+            }
+            temp = (char)(temp - 1);
+        }
+
+        // now add the incoming carry
+        if (carryIn == '1')
+        {
+            if (sum == '9')
+            {
+                sum = '0';
+                carryOut = '1';
+            }
+            else
+            {
+                sum = (char)(sum + 1);
+                // carryOut stays whatever it was before
+            }
+        }
+
+        return (sum, carryOut);
+    }
+
+    public string AddValues(string value1, string value2)
+    {
+        if (value1.Length == 0 || value2.Length == 0)
+            return "0";
+
+        ValidateInputAsync(ref value1,ref value2);
+
+        //reverse the input to add
+        value1 = ReverseString(value1);
+        value2 = ReverseString(value2);
+
+        var v1 = value1.GetEnumerator();
+        var v2 = value2.GetEnumerator();
+
+        bool v1a=v1.MoveNext();
+        bool v2a=v2.MoveNext();
+
+        char carry = '0';
+        string result = "";
+
+        while (v1a || v2a)
+        {
+            char a = v1a ? v1.Current : '0';  //7 
+            char b = v2a ? v2.Current : '0';  //8
+
+            var added = AddDigit(a, b, carry);
+            char digit = added.digit;
+            carry = added.carry;
+
+            result = digit+result;
+
+            v1a = v1a && v1.MoveNext();
+            v2a= v2a && v2.MoveNext();
+        }
+
+        if (carry == '1')
+            result += '1';
+
+        return result;
+    }
+}
+
+class UI
+{
+    public static void Main(string[] args)
+    {
+        Calculator calc = new Calculator(100, "00098760", "Ind");
+        string ans=calc.AddValues("00035601", "0002880");
+       // ans=calc.ReverseString(ans);
+        Console.WriteLine(ans);
+        Console.ReadLine();
+    }
+}
